@@ -16,6 +16,7 @@ def get_new_img_size(width, height, img_min_side=600):
 
     return resized_width, resized_height
 
+
 def bbox2loc(src_bbox, dst_bbox):
     width = src_bbox[:, 2] - src_bbox[:, 0]
     height = src_bbox[:, 3] - src_bbox[:, 1]
@@ -38,6 +39,7 @@ def bbox2loc(src_bbox, dst_bbox):
 
     loc = np.vstack((dx, dy, dw, dh)).transpose()
     return loc
+
 
 def loc2bbox(src_bbox, loc):
     if src_bbox.size()[0] == 0:
@@ -65,11 +67,12 @@ def loc2bbox(src_bbox, loc):
 
     return dst_bbox
 
+
 class DecodeBox():
     def __init__(self, std, mean, num_classes):
         self.std = std
         self.mean = mean
-        self.num_classes = num_classes + 1    
+        self.num_classes = num_classes + 1
 
     def forward(self, roi_cls_locs, roi_scores, rois, height, width, nms_iou, score_thresh):
         roi_cls_loc = (roi_cls_locs * self.std + self.mean)
@@ -83,17 +86,17 @@ class DecodeBox():
         # 防止预测框超出图片范围
         cls_bbox[..., [0, 2]] = (cls_bbox[..., [0, 2]]).clamp(min=0, max=width)
         cls_bbox[..., [1, 3]] = (cls_bbox[..., [1, 3]]).clamp(min=0, max=height)
-        
+
         prob = F.softmax(roi_scores, dim=-1)
 
         class_conf, class_pred = torch.max(prob, dim=-1)
-        #----------------------------------------------------------#
+        # ----------------------------------------------------------#
         #   利用置信度进行第一轮筛选
-        #----------------------------------------------------------#
+        # ----------------------------------------------------------#
         conf_mask = (class_conf >= score_thresh)
-        #----------------------------------------------------------#
+        # ----------------------------------------------------------#
         #   根据置信度进行预测结果的筛选
-        #----------------------------------------------------------#
+        # ----------------------------------------------------------#
         cls_bbox = cls_bbox[conf_mask]
         class_conf = class_conf[conf_mask]
         class_pred = class_pred[conf_mask]
@@ -101,19 +104,19 @@ class DecodeBox():
         output = []
         for l in range(1, self.num_classes):
             arg_mask = class_pred == l
-            #------------------------------------------#
+            # ------------------------------------------#
             #   取出对应的框和置信度
-            #------------------------------------------#
+            # ------------------------------------------#
             cls_bbox_l = cls_bbox[arg_mask, l, :]
             class_conf_l = class_conf[arg_mask]
-            
+
             if len(class_conf_l) == 0:
                 continue
-            
+
             detections_class = torch.cat([cls_bbox_l, torch.unsqueeze(class_pred[arg_mask] - 1, -1).float(), torch.unsqueeze(class_conf_l, -1)], -1)
-            #------------------------------------------#
+            # ------------------------------------------#
             #   使用官方自带的非极大抑制会速度更快一些！
-            #------------------------------------------#
+            # ------------------------------------------#
             keep = nms(
                 detections_class[:, :4],
                 detections_class[:, -1],
@@ -122,7 +125,8 @@ class DecodeBox():
             output.extend(detections_class[keep].cpu().numpy())
 
         return output
-        
+
+
 def bbox_iou(bbox_a, bbox_b):
     if bbox_a.shape[1] != 4 or bbox_b.shape[1] != 4:
         print(bbox_a, bbox_b)
@@ -134,6 +138,7 @@ def bbox_iou(bbox_a, bbox_b):
     area_b = np.prod(bbox_b[:, 2:] - bbox_b[:, :2], axis=1)
     return area_i / (area_a[:, None] + area_b - area_i)
 
+
 class AnchorTargetCreator(object):
     def __init__(self, n_sample=256, pos_iou_thresh=0.7, neg_iou_thresh=0.3, pos_ratio=0.5):
         self.n_sample = n_sample
@@ -143,43 +148,43 @@ class AnchorTargetCreator(object):
 
     def __call__(self, bbox, anchor, img_size):
         argmax_ious, label = self._create_label(anchor, bbox)
-        if (label>0).any():
+        if (label > 0).any():
             loc = bbox2loc(anchor, bbox[argmax_ious])
             return loc, label
         else:
             return np.zeros_like(anchor), label
 
     def _calc_ious(self, anchor, bbox):
-        #----------------------------------------------#
+        # ----------------------------------------------#
         #   anchor和bbox的iou
         #   获得的ious的shape为[num_anchors, num_gt]
-        #----------------------------------------------#
+        # ----------------------------------------------#
         ious = bbox_iou(anchor, bbox)
 
-        if len(bbox)==0:
+        if len(bbox) == 0:
             return np.zeros(len(anchor), np.int32), np.zeros(len(anchor)), np.zeros(len(bbox))
-        #---------------------------------------------------------#
+        # ---------------------------------------------------------#
         #   获得每一个先验框最对应的真实框  [num_anchors, ]
-        #---------------------------------------------------------#
+        # ---------------------------------------------------------#
         argmax_ious = ious.argmax(axis=1)
-        #---------------------------------------------------------#
+        # ---------------------------------------------------------#
         #   找出每一个先验框最对应的真实框的iou  [num_anchors, ]
-        #---------------------------------------------------------#
+        # ---------------------------------------------------------#
         max_ious = np.max(ious, axis=1)
-        
-        #---------------------------------------------------------#
+
+        # ---------------------------------------------------------#
         #   获得每一个真实框最对应的先验框  [num_gt, ]
-        #---------------------------------------------------------#
+        # ---------------------------------------------------------#
         gt_argmax_ious = ious.argmax(axis=0)
 
-        #---------------------------------------------------------#
+        # ---------------------------------------------------------#
         #   保证每一个真实框都存在对应的先验框
-        #---------------------------------------------------------#
+        # ---------------------------------------------------------#
         for i in range(len(gt_argmax_ious)):
             argmax_ious[gt_argmax_ious[i]] = i
 
         return argmax_ious, max_ious, gt_argmax_ious
-        
+
     def _create_label(self, anchor, bbox):
         # ------------------------------------------ #
         #   1是正样本，0是负样本，-1忽略
@@ -194,7 +199,7 @@ class AnchorTargetCreator(object):
         #   gt_argmax_ious为每一个真实框对应的最大的先验框的序号    [num_gt, ]
         # ------------------------------------------------------------------------ #
         argmax_ious, max_ious, gt_argmax_ious = self._calc_ious(anchor, bbox)
-        
+
         # ----------------------------------------------------- #
         #   如果小于门限值则设置为负样本
         #   如果大于门限值则设置为正样本
@@ -202,7 +207,7 @@ class AnchorTargetCreator(object):
         # ----------------------------------------------------- #
         label[max_ious < self.neg_iou_thresh] = 0
         label[max_ious >= self.pos_iou_thresh] = 1
-        if len(gt_argmax_ious)>0:
+        if len(gt_argmax_ious) > 0:
             label[gt_argmax_ious] = 1
 
         # ----------------------------------------------------- #
@@ -241,54 +246,54 @@ class ProposalTargetCreator(object):
         #   计算建议框和真实框的重合程度
         # ----------------------------------------------------- #
         iou = bbox_iou(roi, bbox)
-        
-        if len(bbox)==0:
+
+        if len(bbox) == 0:
             gt_assignment = np.zeros(len(roi), np.int32)
             max_iou = np.zeros(len(roi))
             gt_roi_label = np.zeros(len(roi))
         else:
-            #---------------------------------------------------------#
+            # ---------------------------------------------------------#
             #   获得每一个建议框最对应的真实框  [num_roi, ]
-            #---------------------------------------------------------#
+            # ---------------------------------------------------------#
             gt_assignment = iou.argmax(axis=1)
-            #---------------------------------------------------------#
+            # ---------------------------------------------------------#
             #   获得每一个建议框最对应的真实框的iou  [num_roi, ]
-            #---------------------------------------------------------#
+            # ---------------------------------------------------------#
             max_iou = iou.max(axis=1)
 
-            #---------------------------------------------------------#
+            # ---------------------------------------------------------#
             #   真实框的标签要+1因为有背景的存在
-            #---------------------------------------------------------#
+            # ---------------------------------------------------------#
             gt_roi_label = label[gt_assignment] + 1
 
-        #----------------------------------------------------------------#
+        # ----------------------------------------------------------------#
         #   满足建议框和真实框重合程度大于neg_iou_thresh_high的作为负样本
         #   将正样本的数量限制在self.pos_roi_per_image以内
-        #----------------------------------------------------------------#
+        # ----------------------------------------------------------------#
         pos_index = np.where(max_iou >= self.pos_iou_thresh)[0]
         pos_roi_per_this_image = int(min(self.pos_roi_per_image, pos_index.size))
         if pos_index.size > 0:
             pos_index = np.random.choice(pos_index, size=pos_roi_per_this_image, replace=False)
 
-        #-----------------------------------------------------------------------------------------------------#
+        # -----------------------------------------------------------------------------------------------------#
         #   满足建议框和真实框重合程度小于neg_iou_thresh_high大于neg_iou_thresh_low作为负样本
         #   将正样本的数量和负样本的数量的总和固定成self.n_sample
-        #-----------------------------------------------------------------------------------------------------#
+        # -----------------------------------------------------------------------------------------------------#
         neg_index = np.where((max_iou < self.neg_iou_thresh_high) & (max_iou >= self.neg_iou_thresh_low))[0]
         neg_roi_per_this_image = self.n_sample - pos_roi_per_this_image
         neg_roi_per_this_image = int(min(neg_roi_per_this_image, neg_index.size))
         if neg_index.size > 0:
             neg_index = np.random.choice(neg_index, size=neg_roi_per_this_image, replace=False)
 
-        #---------------------------------------------------------#
+        # ---------------------------------------------------------#
         #   sample_roi      [n_sample, ]
         #   gt_roi_loc      [n_sample, 4]
         #   gt_roi_label    [n_sample, ]
-        #---------------------------------------------------------#
+        # ---------------------------------------------------------#
         keep_index = np.append(pos_index, neg_index)
 
         sample_roi = roi[keep_index]
-        if len(bbox)==0:
+        if len(bbox) == 0:
             return sample_roi, np.zeros_like(sample_roi), gt_roi_label[keep_index]
 
         gt_roi_loc = bbox2loc(sample_roi, bbox[gt_assignment[keep_index]])

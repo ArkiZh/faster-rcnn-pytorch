@@ -1,0 +1,6 @@
+*.pth
+/VOCdevkit/**/*.xml
+/VOCdevkit/**/*.txt
+/VOCdevkit/**/*.jpg
+/*.txt
+__pycache__/

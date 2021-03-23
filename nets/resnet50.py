@@ -7,8 +7,10 @@ import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 from torch.autograd import Variable
 
+
 class Bottleneck(nn.Module):
     expansion = 4
+
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, stride=stride, bias=False)
@@ -45,11 +47,12 @@ class Bottleneck(nn.Module):
 
         return out
 
+
 class ResNet(nn.Module):
     def __init__(self, block, layers, num_classes=1000):
-        #-----------------------------------#
+        # -----------------------------------#
         #   假设输入进来的图片是600,600,3
-        #-----------------------------------#
+        # -----------------------------------#
         self.inplanes = 64
         super(ResNet, self).__init__()
 
@@ -69,7 +72,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         # self.layer4被用在classifier模型中
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        
+
         self.avgpool = nn.AvgPool2d(7)
         self.fc = nn.Linear(512 * block.expansion, num_classes)
 
@@ -83,12 +86,12 @@ class ResNet(nn.Module):
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
-        #-------------------------------------------------------------------#
+        # -------------------------------------------------------------------#
         #   当模型需要进行高和宽的压缩的时候，就需要用到残差边的downsample
-        #-------------------------------------------------------------------#
+        # -------------------------------------------------------------------#
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion,kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(self.inplanes, planes * block.expansion, kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(planes * block.expansion),
             )
         layers = []
@@ -114,17 +117,18 @@ class ResNet(nn.Module):
         x = self.fc(x)
         return x
 
+
 def resnet50():
     model = ResNet(Bottleneck, [3, 4, 6, 3])
-    #----------------------------------------------------------------------------#
+    # ----------------------------------------------------------------------------#
     #   获取特征提取部分，从conv1到model.layer3，最终获得一个38,38,1024的特征层
-    #----------------------------------------------------------------------------#
+    # ----------------------------------------------------------------------------#
     features = list([model.conv1, model.bn1, model.relu, model.maxpool, model.layer1, model.layer2, model.layer3])
-    #----------------------------------------------------------------------------#
+    # ----------------------------------------------------------------------------#
     #   获取分类部分，从model.layer4到model.avgpool
-    #----------------------------------------------------------------------------#
+    # ----------------------------------------------------------------------------#
     classifier = list([model.layer4, model.avgpool])
-    
+
     features = nn.Sequential(*features)
     classifier = nn.Sequential(*classifier)
     return features, classifier

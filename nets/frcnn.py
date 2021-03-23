@@ -11,23 +11,23 @@ from nets.vgg16 import decom_vgg16
 
 
 class FasterRCNN(nn.Module):
-    def __init__(self, num_classes, 
-                    mode = "training",
-                    feat_stride = 16,
-                    anchor_scales = [8, 16, 32],
-                    ratios = [0.5, 1, 2],
-                    backbone = 'vgg'):
+    def __init__(self, num_classes,
+                 mode="training",
+                 feat_stride=16,
+                 anchor_scales=[8, 16, 32],
+                 ratios=[0.5, 1, 2],
+                 backbone='vgg'):
         super(FasterRCNN, self).__init__()
         self.feat_stride = feat_stride
         if backbone == 'vgg':
             self.extractor, classifier = decom_vgg16()
-            
+
             self.rpn = RegionProposalNetwork(
                 512, 512,
                 ratios=ratios,
                 anchor_scales=anchor_scales,
                 feat_stride=self.feat_stride,
-                mode = mode
+                mode=mode
             )
             self.head = VGG16RoIHead(
                 n_class=num_classes + 1,
@@ -43,7 +43,7 @@ class FasterRCNN(nn.Module):
                 ratios=ratios,
                 anchor_scales=anchor_scales,
                 feat_stride=self.feat_stride,
-                mode = mode
+                mode=mode
             )
             self.head = Resnet50RoIHead(
                 n_class=num_classes + 1,
@@ -51,7 +51,7 @@ class FasterRCNN(nn.Module):
                 spatial_scale=1,
                 classifier=classifier
             )
-            
+
     def forward(self, x, scale=1.):
         img_size = x.shape[2:]
         base_feature = self.extractor(x)

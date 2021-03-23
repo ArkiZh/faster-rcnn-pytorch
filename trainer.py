@@ -18,8 +18,9 @@ LossTuple = namedtuple('LossTuple',
                         'total_loss'
                         ])
 
+
 class FasterRCNNTrainer(nn.Module):
-    def __init__(self, faster_rcnn,optimizer):
+    def __init__(self, faster_rcnn, optimizer):
         super(FasterRCNNTrainer, self).__init__()
 
         self.faster_rcnn = faster_rcnn
@@ -37,7 +38,7 @@ class FasterRCNNTrainer(nn.Module):
     def forward(self, imgs, bboxes, labels, scale):
         n = imgs.shape[0]
         img_size = imgs.shape[2:]
-        
+
         # 获取公用特征层
         base_feature = self.faster_rcnn.extractor(imgs)
 
@@ -50,7 +51,7 @@ class FasterRCNNTrainer(nn.Module):
             label = labels[i]
             rpn_loc = rpn_locs[i]
             rpn_score = rpn_scores[i]
-            roi = rois[roi_indices==i]
+            roi = rois[roi_indices == i]
             feature = base_feature[i]
 
             # -------------------------------------------------- #
@@ -72,7 +73,7 @@ class FasterRCNNTrainer(nn.Module):
             # -------------------------------------------------- #
             rpn_loc_loss = _fast_rcnn_loc_loss(rpn_loc, gt_rpn_loc, gt_rpn_label, self.rpn_sigma)
             rpn_cls_loss = F.cross_entropy(rpn_score, gt_rpn_label, ignore_index=-1)
-  
+
             # ------------------------------------------------------ #
             #   利用真实框和建议框获得classifier网络应该有的预测结果
             #   获得三个变量，分别是sample_roi, gt_roi_loc, gt_roi_label
@@ -85,7 +86,7 @@ class FasterRCNNTrainer(nn.Module):
             gt_roi_loc = torch.Tensor(gt_roi_loc)
             gt_roi_label = torch.Tensor(gt_roi_label).long()
             sample_roi_index = torch.zeros(len(sample_roi))
-            
+
             if feature.is_cuda:
                 sample_roi = sample_roi.cuda()
                 sample_roi_index = sample_roi_index.cuda()
@@ -111,8 +112,8 @@ class FasterRCNNTrainer(nn.Module):
             rpn_cls_loss_all += rpn_cls_loss
             roi_loc_loss_all += roi_loc_loss
             roi_cls_loss_all += roi_cls_loss
-            
-        losses = [rpn_loc_loss_all/n, rpn_cls_loss_all/n, roi_loc_loss_all/n, roi_cls_loss_all/n]
+
+        losses = [rpn_loc_loss_all / n, rpn_cls_loss_all / n, roi_loc_loss_all / n, roi_cls_loss_all / n]
         losses = losses + [sum(losses)]
         return LossTuple(*losses)
 
@@ -123,20 +124,22 @@ class FasterRCNNTrainer(nn.Module):
         self.optimizer.step()
         return losses
 
+
 def _smooth_l1_loss(x, t, sigma):
     sigma_squared = sigma ** 2
     regression_diff = (x - t)
     regression_diff = regression_diff.abs()
     regression_loss = torch.where(
-            regression_diff < (1. / sigma_squared),
-            0.5 * sigma_squared * regression_diff ** 2,
-            regression_diff - 0.5 / sigma_squared
-        )
+        regression_diff < (1. / sigma_squared),
+        0.5 * sigma_squared * regression_diff ** 2,
+        regression_diff - 0.5 / sigma_squared
+    )
     return regression_loss.sum()
 
+
 def _fast_rcnn_loc_loss(pred_loc, gt_loc, gt_label, sigma):
-    pred_loc = pred_loc[gt_label>0]
-    gt_loc = gt_loc[gt_label>0]
+    pred_loc = pred_loc[gt_label > 0]
+    gt_loc = gt_loc[gt_label > 0]
 
     loc_loss = _smooth_l1_loss(pred_loc, gt_loc, sigma)
     num_pos = (gt_label > 0).sum().float()
