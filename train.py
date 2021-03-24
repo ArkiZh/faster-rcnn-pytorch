@@ -1,5 +1,5 @@
 import time
-
+import cuda_util
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
@@ -27,6 +27,7 @@ def fit_ont_epoch(net, epoch, epoch_size, epoch_size_val, gen, genval, Epoch, cu
     val_toal_loss = 0
     with tqdm(total=epoch_size, desc=f'Epoch {epoch + 1}/{Epoch}', postfix=dict, mininterval=0.3) as pbar:
         for iteration, batch in enumerate(gen):
+            cuda_util.check_cuda_usage("Before batch {}".format(iteration))
             if iteration >= epoch_size:
                 break
             imgs, boxes, labels = batch[0], batch[1], batch[2]
@@ -37,12 +38,13 @@ def fit_ont_epoch(net, epoch, epoch_size, epoch_size_val, gen, genval, Epoch, cu
                     imgs = Variable(torch.from_numpy(imgs).type(torch.FloatTensor))
 
             losses = train_util.train_step(imgs, boxes, labels, 1)
+            cuda_util.check_cuda_usage("After batch train {}".format(iteration))
             rpn_loc, rpn_cls, roi_loc, roi_cls, total = losses
-            total_loss += total.item()
-            rpn_loc_loss += rpn_loc.item()
-            rpn_cls_loss += rpn_cls.item()
-            roi_loc_loss += roi_loc.item()
-            roi_cls_loss += roi_cls.item()
+            total_loss += float(total.item())
+            rpn_loc_loss += float(rpn_loc.item())
+            rpn_cls_loss += float(rpn_cls.item())
+            roi_loc_loss += float(roi_loc.item())
+            roi_cls_loss += float(roi_cls.item())
 
             pbar.set_postfix(**{'total': total_loss / (iteration + 1),
                                 'rpn_loc': rpn_loc_loss / (iteration + 1),
@@ -50,6 +52,7 @@ def fit_ont_epoch(net, epoch, epoch_size, epoch_size_val, gen, genval, Epoch, cu
                                 'roi_loc': roi_loc_loss / (iteration + 1),
                                 'roi_cls': roi_cls_loss / (iteration + 1),
                                 'lr': get_lr(optimizer)})
+            cuda_util.check_cuda_usage("After bar {}".format(iteration))
             pbar.update(1)
 
     print('Start Validation')
@@ -85,7 +88,7 @@ if __name__ == "__main__":
     #   是否使用Cuda
     #   没有GPU可以设置成False
     # -------------------------------#
-    Cuda = True
+    Cuda = False
     # ----------------------------------------------------#
     #   训练之前一定要修改NUM_CLASSES
     #   修改成所需要区分的类的个数。
@@ -95,18 +98,18 @@ if __name__ == "__main__":
     #   input_shape是输入图片的大小，默认为800,800,3，随着输入图片的增大，占用显存会增大
     #   视频上为600,600,3，实际测试中发现800,800,3效果更好
     # -------------------------------------------------------------------------------------#
-    input_shape = [200, 200, 3]
+    input_shape = [600, 600, 3]
     # ----------------------------------------------------#
     #   使用到的主干特征提取网络
     #   vgg或者resnet50
     # ----------------------------------------------------#
-    backbone = "resnet50"
+    backbone = "vgg"
     model = FasterRCNN(NUM_CLASSES, backbone=backbone)
 
     # #------------------------------------------------------#
     #   权值文件请看README，百度网盘下载
     # ------------------------------------------------------#
-    model_path = 'model_data/voc_weights_resnet.pth'
+    model_path = 'model_data/voc_weights_vgg.pth'
     print('Loading weights into state dict...')
     device = torch.device('cuda' if (torch.cuda.is_available() and Cuda) else 'cpu')
     model_dict = model.state_dict()
@@ -131,7 +134,6 @@ if __name__ == "__main__":
     val_split = 0.1
     with open(annotation_path) as f:
         lines = f.readlines()
-    lines = lines[:100]
     np.random.seed(10101)
     np.random.shuffle(lines)
     np.random.seed(None)
@@ -148,7 +150,7 @@ if __name__ == "__main__":
     # ------------------------------------------------------#
     if True:
         lr = 1e-4
-        Batch_size = 1
+        Batch_size = 4
         Init_Epoch = 0
         Freeze_Epoch = 5
 
@@ -178,12 +180,14 @@ if __name__ == "__main__":
         train_util = FasterRCNNTrainer(model, optimizer)
 
         for epoch in range(Init_Epoch, Freeze_Epoch):
+            cuda_util.check_cuda_usage("Before epoch")
             fit_ont_epoch(net, epoch, epoch_size, epoch_size_val, gen, gen_val, Freeze_Epoch, Cuda)
+            cuda_util.check_cuda_usage("After epoch")
             lr_scheduler.step()
 
     if True:
         lr = 1e-5
-        Batch_size = 1
+        Batch_size = 4
         Freeze_Epoch = 5
         Unfreeze_Epoch = 10
 

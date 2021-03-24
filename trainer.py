@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import os
 import time
 from collections import namedtuple
-
+import cuda_util
 import torch as torch
 from torch import nn
 from torch.nn import functional as F
@@ -81,6 +81,7 @@ class FasterRCNNTrainer(nn.Module):
             #   gt_roi_loc      [n_sample, 4]
             #   gt_roi_label    [n_sample, ]
             # ------------------------------------------------------ #
+            cuda_util.check_cuda_usage("Before proposal target")
             sample_roi, gt_roi_loc, gt_roi_label = self.proposal_target_creator(roi, bbox, label, self.loc_normalize_mean, self.loc_normalize_std)
             sample_roi = torch.Tensor(sample_roi)
             gt_roi_loc = torch.Tensor(gt_roi_loc)
@@ -92,7 +93,7 @@ class FasterRCNNTrainer(nn.Module):
                 sample_roi_index = sample_roi_index.cuda()
                 gt_roi_loc = gt_roi_loc.cuda()
                 gt_roi_label = gt_roi_label.cuda()
-
+            cuda_util.check_cuda_usage("Before head")
             roi_cls_loc, roi_score = self.faster_rcnn.head(torch.unsqueeze(feature, 0), sample_roi, sample_roi_index, img_size)
 
             # ------------------------------------------------------ #
