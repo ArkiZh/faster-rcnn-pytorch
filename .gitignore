@@ -1,7 +1,8 @@
 *.pth
-/VOCdevkit/**/*.xml
-/VOCdevkit/**/*.txt
-/VOCdevkit/**/*.jpg
+/dataset/**/*.xml
+/dataset/**/*.txt
+/dataset/**/*.jpg
 /*.txt
 __pycache__/
-/dataset/**/*.txt
+/test/input/
+/test/results/

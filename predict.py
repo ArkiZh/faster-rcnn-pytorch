@@ -8,7 +8,8 @@ predict.py有几个注意点
 from frcnn import FRCNN
 from PIL import Image
 
-frcnn = FRCNN()
+frcnn = FRCNN(cuda=True, model_path="./logs/Epoch1-Total_Loss0.2261-Val_Loss0.1723.pth", classes_path="./dataset/TLR2009_label.txt")
+
 
 while True:
     img = input('Input image filename:')

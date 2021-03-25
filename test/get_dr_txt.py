@@ -76,8 +76,12 @@ class mAP_FRCNN(FRCNN):
         return
 
 
-frcnn = mAP_FRCNN()
-image_ids = open('VOCdevkit/VOC2007/ImageSets/Main/test.txt').read().strip().split()
+# TODO 要预测新模型，需要修改这里
+frcnn = mAP_FRCNN(cuda=True, model_path="../logs/Epoch1-Total_Loss0.2261-Val_Loss0.1723.pth", classes_path="../dataset/TLR2009_label.txt")
+validate_path = '../dataset/TLR2009_validate.txt'
+
+with open(validate_path, mode="r", encoding="utf-8") as f:
+    image_paths =[line.split(" ")[0] for line in f.read().strip().split("\n")]
 
 if not os.path.exists("./input"):
     os.makedirs("./input")
@@ -86,10 +90,11 @@ if not os.path.exists("./input/detection-results"):
 if not os.path.exists("./input/images-optional"):
     os.makedirs("./input/images-optional")
 
-for image_id in tqdm(image_ids):
-    image_path = "./VOCdevkit/VOC2007/JPEGImages/" + image_id + ".jpg"
+for image_path in image_paths:
     image = Image.open(image_path)
-    # image.save("./input/images-optional/"+image_id+".jpg")
+    print("Predict: {}".format(image_path))
+    image_id = os.path.basename(image_path)
+    image.save("./input/images-optional/"+image_id+".jpg")
     frcnn.detect_image(image_id, image)
 
 print("Conversion completed!")

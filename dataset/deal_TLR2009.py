@@ -8,7 +8,7 @@ TLR_path_img = "E:/workspace/datasets/TLR2009/Lara3D_UrbanSeq1_JPG"
 test_size = 200
 ds_path_train = "./TLR2009_train.txt"
 ds_path_validate = "./TLR2009_validate.txt"
-label_map_path = "./TLR2009_label_map.txt"
+label_path = "./TLR2009_label.txt"
 
 ds_lines = OrderedDict()
 label_map = OrderedDict()
@@ -25,7 +25,8 @@ with open(file=TLR_path_gt, mode="r", encoding="utf-8") as f:
         cur_img_path = os.path.join(TLR_path_img, "frame_{:>06}.jpg".format(elements[2]))
         if not os.path.exists(cur_img_path):
             continue
-        label = cur_line[cur_line.index(" '"):-1]
+        label = cur_line[cur_line.index(" '")+1:-1]
+        label = label.replace("'", "").replace(" ", "-")
         if label in label_map:
             label_id = label_map[label]
         else:
@@ -48,6 +49,6 @@ with open(file=ds_path_validate, mode="w+", encoding="utf-8") as f:
     for k, v in ds_validate:
         f.write("{} {}\n".format(k, v))
 
-with open(file=label_map_path, mode="w+", encoding="utf-8") as f:
+with open(file=label_path, mode="w+", encoding="utf-8") as f:
     for k, v in label_map.items():
-        f.write("{} {}\n".format(k, v))
+        f.write("{}\n".format(k))
