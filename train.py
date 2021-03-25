@@ -88,28 +88,38 @@ if __name__ == "__main__":
     #   是否使用Cuda
     #   没有GPU可以设置成False
     # -------------------------------#
-    Cuda = False
+    Cuda = True
+    cuda_util.PRINT_FLAG = False
     # ----------------------------------------------------#
     #   训练之前一定要修改NUM_CLASSES
     #   修改成所需要区分的类的个数。
     # ----------------------------------------------------#
-    NUM_CLASSES = 20
+    NUM_CLASSES = 4  # TODO
+    annotation_path = './dataset/TLR2009_train.txt'  # TODO
+    # ----------------------------------------------------#
+    #   使用到的主干特征提取网络
+    #   vgg或者resnet50
+    # ----------------------------------------------------#
+    backbone = "resnet50"
+    model_path = 'model_data/voc_weights_resnet.pth'
+
+    initial_lr = 1e-4
+    initial_batch_size = 1
+    Init_Epoch = 0
+    Initial_Epoch = 5
+
+    retrain_lr = 1e-5
+    retrain_batch_size = 1
+    End_Epoch = 10
+
     # -------------------------------------------------------------------------------------#
     #   input_shape是输入图片的大小，默认为800,800,3，随着输入图片的增大，占用显存会增大
     #   视频上为600,600,3，实际测试中发现800,800,3效果更好
     # -------------------------------------------------------------------------------------#
     input_shape = [600, 600, 3]
-    # ----------------------------------------------------#
-    #   使用到的主干特征提取网络
-    #   vgg或者resnet50
-    # ----------------------------------------------------#
-    backbone = "vgg"
+
     model = FasterRCNN(NUM_CLASSES, backbone=backbone)
 
-    # #------------------------------------------------------#
-    #   权值文件请看README，百度网盘下载
-    # ------------------------------------------------------#
-    model_path = 'model_data/voc_weights_vgg.pth'
     print('Loading weights into state dict...')
     device = torch.device('cuda' if (torch.cuda.is_available() and Cuda) else 'cpu')
     model_dict = model.state_dict()
@@ -125,7 +135,6 @@ if __name__ == "__main__":
         cudnn.benchmark = True
         net = net.cuda()
 
-    annotation_path = '2007_train.txt'
     # ----------------------------------------------------------------------#
     #   验证集的划分在train.py代码里面进行
     #   2007_test.txt和2007_val.txt里面没有内容是正常的。训练不会使用到。
@@ -149,23 +158,18 @@ if __name__ == "__main__":
     #   提示OOM或者显存不足请调小Batch_size
     # ------------------------------------------------------#
     if True:
-        lr = 1e-4
-        Batch_size = 4
-        Init_Epoch = 0
-        Freeze_Epoch = 5
-
-        optimizer = optim.Adam(net.parameters(), lr, weight_decay=5e-4)
+        optimizer = optim.Adam(net.parameters(), initial_lr, weight_decay=5e-4)
         lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
 
         train_dataset = FRCNNDataset(lines[:num_train], (input_shape[0], input_shape[1]), is_train=True)
         val_dataset = FRCNNDataset(lines[num_train:], (input_shape[0], input_shape[1]), is_train=False)
-        gen = DataLoader(train_dataset, shuffle=True, batch_size=Batch_size, num_workers=4, pin_memory=True,
+        gen = DataLoader(train_dataset, shuffle=True, batch_size=initial_batch_size, num_workers=4, pin_memory=True,
                          drop_last=True, collate_fn=frcnn_dataset_collate)
-        gen_val = DataLoader(val_dataset, shuffle=True, batch_size=Batch_size, num_workers=4, pin_memory=True,
+        gen_val = DataLoader(val_dataset, shuffle=True, batch_size=initial_batch_size, num_workers=4, pin_memory=True,
                              drop_last=True, collate_fn=frcnn_dataset_collate)
 
-        epoch_size = num_train // Batch_size
-        epoch_size_val = num_val // Batch_size
+        epoch_size = num_train // initial_batch_size
+        epoch_size_val = num_val // initial_batch_size
         # ------------------------------------#
         #   冻结一定部分训练
         # ------------------------------------#
@@ -179,30 +183,26 @@ if __name__ == "__main__":
 
         train_util = FasterRCNNTrainer(model, optimizer)
 
-        for epoch in range(Init_Epoch, Freeze_Epoch):
-            cuda_util.check_cuda_usage("Before epoch")
-            fit_ont_epoch(net, epoch, epoch_size, epoch_size_val, gen, gen_val, Freeze_Epoch, Cuda)
+        for epoch in range(Init_Epoch, Initial_Epoch):
+            cuda_util.check_cuda_usage("Before epoch", empty_cache=True)
+            fit_ont_epoch(net, epoch, epoch_size, epoch_size_val, gen, gen_val, Initial_Epoch, Cuda)
             cuda_util.check_cuda_usage("After epoch")
             lr_scheduler.step()
 
     if True:
-        lr = 1e-5
-        Batch_size = 4
-        Freeze_Epoch = 5
-        Unfreeze_Epoch = 10
 
-        optimizer = optim.Adam(net.parameters(), lr, weight_decay=5e-4)
+        optimizer = optim.Adam(net.parameters(), retrain_lr, weight_decay=5e-4)
         lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
 
         train_dataset = FRCNNDataset(lines[:num_train], (input_shape[0], input_shape[1]), is_train=True)
         val_dataset = FRCNNDataset(lines[num_train:], (input_shape[0], input_shape[1]), is_train=False)
-        gen = DataLoader(train_dataset, shuffle=True, batch_size=Batch_size, num_workers=4, pin_memory=True,
+        gen = DataLoader(train_dataset, shuffle=True, batch_size=retrain_batch_size, num_workers=4, pin_memory=True,
                          drop_last=True, collate_fn=frcnn_dataset_collate)
-        gen_val = DataLoader(val_dataset, shuffle=True, batch_size=Batch_size, num_workers=4, pin_memory=True,
+        gen_val = DataLoader(val_dataset, shuffle=True, batch_size=retrain_batch_size, num_workers=4, pin_memory=True,
                              drop_last=True, collate_fn=frcnn_dataset_collate)
 
-        epoch_size = num_train // Batch_size
-        epoch_size_val = num_val // Batch_size
+        epoch_size = num_train // retrain_batch_size
+        epoch_size_val = num_val // retrain_batch_size
         # ------------------------------------#
         #   解冻后训练
         # ------------------------------------#
@@ -216,7 +216,9 @@ if __name__ == "__main__":
 
         train_util = FasterRCNNTrainer(model, optimizer)
 
-        for epoch in range(Freeze_Epoch, Unfreeze_Epoch):
-            fit_ont_epoch(net, epoch, epoch_size, epoch_size_val, gen, gen_val, Unfreeze_Epoch, Cuda)
+        for epoch in range(Initial_Epoch, End_Epoch):
+            cuda_util.check_cuda_usage("Before epoch", empty_cache=True)
+            fit_ont_epoch(net, epoch, epoch_size, epoch_size_val, gen, gen_val, End_Epoch, Cuda)
             lr_scheduler.step()
+            cuda_util.check_cuda_usage("Before epoch", empty_cache=False)
 

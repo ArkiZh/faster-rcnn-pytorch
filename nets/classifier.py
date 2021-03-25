@@ -102,6 +102,7 @@ class Resnet50RoIHead(nn.Module):
 
         cuda_util.check_cuda_usage("Before classifier", empty_cache=True)
         fc7 = self.classifier(pool)
+        cuda_util.check_cuda_usage("After classifier", empty_cache=False)
         # 当输入为一张图片的时候，这里获得的f7的shape为[300, 2048]
         fc7 = fc7.view(fc7.size(0), -1)
 

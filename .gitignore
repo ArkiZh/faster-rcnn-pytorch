@@ -4,3 +4,4 @@
 /VOCdevkit/**/*.jpg
 /*.txt
 __pycache__/
+/dataset/**/*.txt
