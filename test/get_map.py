@@ -6,7 +6,7 @@ import operator
 import os
 import shutil
 import sys
-
+import matplotlib.pyplot as plt
 import numpy as np
 
 # ----------------------------------------------------#
@@ -72,7 +72,7 @@ if not args.no_animation:
         args.no_animation = True
 
 # try to import Matplotlib if the user didn't choose the option --no-plot
-draw_plot = False
+draw_plot = True
 if not args.no_plot:
     try:
         import matplotlib.pyplot as plt
