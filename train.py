@@ -106,7 +106,7 @@ if __name__ == "__main__":
     initial_lr = 1e-4
     initial_batch_size = 1
     Init_Epoch = 0
-    Initial_Epoch = 5
+    Unfreeze_Epoch = 5
 
     retrain_lr = 1e-5
     retrain_batch_size = 1
@@ -183,9 +183,9 @@ if __name__ == "__main__":
 
         train_util = FasterRCNNTrainer(model, optimizer)
 
-        for epoch in range(Init_Epoch, Initial_Epoch):
+        for epoch in range(Init_Epoch, Unfreeze_Epoch):
             cuda_util.check_cuda_usage("Before epoch", empty_cache=True)
-            fit_ont_epoch(net, epoch, epoch_size, epoch_size_val, gen, gen_val, Initial_Epoch, Cuda)
+            fit_ont_epoch(net, epoch, epoch_size, epoch_size_val, gen, gen_val, Unfreeze_Epoch, Cuda)
             cuda_util.check_cuda_usage("After epoch")
             lr_scheduler.step()
 
@@ -216,7 +216,7 @@ if __name__ == "__main__":
 
         train_util = FasterRCNNTrainer(model, optimizer)
 
-        for epoch in range(Initial_Epoch, End_Epoch):
+        for epoch in range(Unfreeze_Epoch, End_Epoch):
             cuda_util.check_cuda_usage("Before epoch", empty_cache=True)
             fit_ont_epoch(net, epoch, epoch_size, epoch_size_val, gen, gen_val, End_Epoch, Cuda)
             lr_scheduler.step()

@@ -7,7 +7,6 @@ import os
 validate_path = '../dataset/TLR2009_validate.txt'
 label_name_path = "../dataset/TLR2009_label.txt"
 
-image_info = []
 with open(validate_path, mode="r", encoding="utf-8") as f:
     image_info =[line for line in f.read().strip().split("\n")]
 with open(label_name_path, mode="r", encoding="utf-8") as f:
